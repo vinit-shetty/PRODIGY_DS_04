@@ -1,0 +1,47 @@
+# Install and load necessary libraries
+install.packages("tidytext")
+install.packages("ggplot2")
+install.packages("dplyr")
+
+library(tidytext)
+library(ggplot2)
+library(dplyr)
+
+# Load the dataset without column names
+twitter_data <- read.csv("twitter_training.csv", header = FALSE, sep = ",", quote = "", stringsAsFactors = FALSE)
+
+# Assign column names
+colnames(twitter_data) <- c("ID", "Entity", "Sentiment", "Text")
+
+# Check the structure of the dataset
+str(twitter_data)
+
+# Preprocess the text data
+twitter_data <- twitter_data %>%
+  select(Text, Sentiment)
+
+# Remove URLs, special characters, and convert to lowercase
+twitter_data$Text <- tolower(twitter_data$Text)
+twitter_data$Text <- gsub("http\\S+|www\\S+|https\\S+", "", twitter_data$Text)
+twitter_data$Text <- gsub("[^a-zA-Z\\s]", "", twitter_data$Text)
+
+# Tokenize the text
+tokenized_text <- twitter_data %>%
+  unnest_tokens(word, Text)
+
+# Load the Bing lexicon from tidytext
+bing_lexicon <- get_sentiments("bing")
+
+# Analyze sentiment using Bing lexicon
+bing_scores <- tokenized_text %>%
+  inner_join(bing_lexicon, by = "word") %>%
+  group_by(Sentiment) %>%
+  summarise(sentiment_score = mean(ifelse(sentiment == "positive", 1, -1), na.rm = TRUE))
+
+# Visualize sentiment distribution
+ggplot(bing_scores, aes(x = Sentiment, y = sentiment_score, fill = Sentiment)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Sentiment Distribution in Twitter Data (Bing)",
+       x = "Sentiment", y = "Average Sentiment Score") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())
